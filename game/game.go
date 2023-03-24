@@ -2,7 +2,6 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jodios/samplemovement/game/characters"
 )
 
@@ -18,44 +17,13 @@ type Game struct {
 
 // Called every tick
 func (g *Game) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
-		g.MoveUp = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyW) {
-		g.MoveUp = false
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		g.MoveRight = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyD) {
-		g.MoveRight = false
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-		g.MoveDown = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyS) {
-		g.MoveDown = false
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
-		g.MoveLeft = true
-	} else if inpututil.IsKeyJustReleased(ebiten.KeyA) {
-		g.MoveLeft = false
-	}
+	g.Character.Update()
 	return nil
 }
 
 // called every frame
 func (g *Game) Draw(screen *ebiten.Image) {
-	if g.MoveUp {
-		g.Character.MoveUp(screen)
-	} else if g.MoveDown {
-		g.Character.MoveDown(screen)
-	} else if g.MoveLeft {
-		g.Character.MoveLeft(screen)
-	} else if g.MoveRight {
-		g.Character.MoveRight(screen)
-	}
-	g.Character.Idle(screen)
+	g.Character.Move(screen)
 }
 
 // accepts the window dimensions and returns the inside

@@ -14,4 +14,5 @@ const (
 	LEFT Direction = "LEFT"
 
 	RIGHT Direction = "RIGHT"
+	NONE  Direction = "NONE"
 )
