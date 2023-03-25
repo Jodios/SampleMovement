@@ -7,19 +7,9 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jodios/samplemovement/constants"
 	"github.com/jodios/samplemovement/game"
 	"github.com/jodios/samplemovement/game/characters"
-)
-
-const (
-	screenWidth  = 800
-	screenHeight = 700
-)
-const (
-	// insideWidth  = 160
-	// insideHeight = 140
-	insideWidth  = 320
-	insideHeight = 280
 )
 
 var (
@@ -49,12 +39,12 @@ func init() {
 //go:generate go run github.com/unitoftime/packer/cmd/packer@latest --input images --stats
 func main() {
 	game := game.Game{
-		InnerWidth:  insideWidth,
-		InnerHeight: insideHeight,
+		InnerWidth:  constants.InsideWidth,
+		InnerHeight: constants.InsideHeight,
 		Character:   characters.NewOrange(assets),
 	}
 	ebiten.SetWindowTitle("Super Awesome Game!!!")
-	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowSize(constants.ScreenWidth, constants.ScreenHeight)
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 	ebiten.RunGame(&game)
 }

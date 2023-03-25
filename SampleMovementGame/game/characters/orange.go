@@ -3,6 +3,7 @@ package characters
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/jodios/samplemovement/constants"
 )
 
 type Orange struct {
@@ -40,8 +41,14 @@ func (o *Orange) Update() {
 	if len(o.keys) > 0 {
 		for _, v := range o.keys {
 			if mv, ok := MoveVectorMapping[v]; ok {
-				o.PosX += float64(mv.Xs) * o.Speed
-				o.PosY += float64(mv.Ys) * o.Speed
+				nPosX := o.PosX + (float64(mv.Xs) * o.Speed)
+				nPosY := o.PosY + (float64(mv.Ys) * o.Speed)
+				if nPosX-6 >= 0 && nPosX < constants.InsideWidth {
+					o.PosX = nPosX
+				}
+				if nPosY-6 >= 0 && nPosY < constants.InsideHeight {
+					o.PosY = nPosY
+				}
 				x += int(mv.Xs)
 				y += (mv.Ys)
 			}
@@ -70,7 +77,7 @@ func NewOrange(loaded map[string]*ebiten.Image) *Orange {
 		},
 	}
 	return &Orange{
-		Speed:     .5,
+		Speed:     1,
 		PosX:      50,
 		PosY:      50,
 		movements: movements,

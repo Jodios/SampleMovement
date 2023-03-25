@@ -1,6 +1,8 @@
 package game
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jodios/samplemovement/game/characters"
 )
@@ -23,6 +25,7 @@ func (g *Game) Update() error {
 
 // called every frame
 func (g *Game) Draw(screen *ebiten.Image) {
+	screen.Fill(color.RGBA{213, 218, 241, 255})
 	g.Character.Move(screen)
 }
 
