@@ -7,13 +7,10 @@ Each direction has 3 sprites:
 1. Animation state A for direction  
 2. Animation state A for direction  
 
-$$
-\left[\begin{array}{ccccccccccc}
-↖ & ⬆ & ↗ \\
-⬅ & ? & ➡\\
-↙ & ⬇ & ↘
-\end{array}\right]
-$$
+|   ↖   |   ⬆   |   ↗   |
+| :---: | :---: | :---: |
+|   ⬅   |   ?   |   ➡   |
+|   ↙   |   ⬇   |   ↘   |
 
 ## Update Function
 ---
