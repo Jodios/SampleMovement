@@ -6,16 +6,14 @@ import (
 )
 
 type Orange struct {
-	PosX             float64
-	PosY             float64
-	Speed            float64
-	LastDirection    Direction
-	CurrentDirection Direction
-	counter          int
-	move             bool
-	keys             []ebiten.Key
-	direction        [2]int
-	movements        [3][3][3]*ebiten.Image
+	PosX      float64
+	PosY      float64
+	Speed     float64
+	counter   int
+	move      bool
+	keys      []ebiten.Key
+	direction [2]int
+	movements [3][3][3]*ebiten.Image
 }
 
 func (o *Orange) Move(screen *ebiten.Image) {
@@ -37,7 +35,6 @@ func (o *Orange) Update() {
 		o.move = !o.move
 	}
 	o.counter++
-	o.CurrentDirection = NONE
 	o.keys = inpututil.AppendPressedKeys(o.keys[:0])
 	x, y := 0, 0
 	if len(o.keys) > 0 {
@@ -73,10 +70,9 @@ func NewOrange(loaded map[string]*ebiten.Image) *Orange {
 		},
 	}
 	return &Orange{
-		LastDirection: DOWN,
-		Speed:         .5,
-		PosX:          50,
-		PosY:          50,
-		movements:     movements,
+		Speed:     .5,
+		PosX:      50,
+		PosY:      50,
+		movements: movements,
 	}
 }
