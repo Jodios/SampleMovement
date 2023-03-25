@@ -1,6 +1,6 @@
 # Orange Character (Others to come)
 ---
-I am loaded all sprites associated to the characters movement in a 3x3 matrix. 
+I am loading all sprites associated to the characters movement in a 3x3 matrix. 
 Each direction has 3 sprites:  
 
 0. Idle state of direction
@@ -13,7 +13,6 @@ Each direction has 3 sprites:
 |   ↙   |   ⬇   |   ↘   |
 
 ## Update Function
----
 ***Update gets called every tick (about $60TPS$)***  
    
 Counter increments each time and flips flag **move** on and off for animation in the draw function.  
@@ -24,6 +23,6 @@ The x/y positon of the character is being multiplied by the characters speed.
   
   
 ## Draw Function
----
 ***Draw gets called every frame (for me about $120FPS$)***  
+
 This function only draws the sprite on the screen. 
