@@ -1,0 +1,34 @@
+{
+	"characters": {
+		"JohnA": {
+			"posx": 187,
+			"posy": 167,
+			"speed": 1
+		},
+		"JohnB": {
+			"posx": 6,
+			"posy": 362,
+			"speed": 1
+		},
+		"JohnC": {
+			"posx": 100,
+			"posy": 100,
+			"speed": 1
+		},
+		"JohnD": {
+			"posx": 100,
+			"posy": 100,
+			"speed": 1
+		},
+		"JohnDD": {
+			"posx": 100,
+			"posy": 100,
+			"speed": 1
+		},
+		"JohnE": {
+			"posx": 100,
+			"posy": 100,
+			"speed": 1
+		}
+	}
+}

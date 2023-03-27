@@ -1,15 +1,21 @@
 package characters
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jodios/samplemovement/constants"
 )
 
 type Orange struct {
-	PosX      float64
-	PosY      float64
-	Speed     float64
+	PosX     float64 `json:"posx,omitempty"`
+	PosY     float64 `json:"posy,omitempty"`
+	Speed    float64 `json:"speed,omitempty"`
+	CharName string
+
 	counter   int
 	move      bool
 	keys      []ebiten.Key
@@ -55,6 +61,14 @@ func (o *Orange) Update() {
 		}
 		o.direction[0] = x + 1
 		o.direction[1] = y + 1
+		go func() {
+			body, _ := json.Marshal(o)
+			http.Post(
+				"http://localhost:8080/publish?name="+o.CharName,
+				"application/text",
+				bytes.NewBuffer([]byte(body)),
+			)
+		}()
 	}
 }
 

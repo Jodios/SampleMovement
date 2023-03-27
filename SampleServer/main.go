@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -13,24 +13,31 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
+	"github.com/jodios/sampleserver/game"
 	"nhooyr.io/websocket"
 )
 
 func main() {
-	err := run()
+	gameState, err := run()
 	if err != nil {
 		panic(err)
 	}
+	saveFile, _ := json.MarshalIndent(gameState, "", "\t")
+	err = os.WriteFile("game.json", saveFile, 0666)
+	if err != nil {
+		fmt.Printf("Unable to save game: %v\n", err)
+	}
 }
 
-func run() error {
+func run() (*game.Game, error) {
 	l, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
 		fmt.Printf("Error establishing TCP connection: %v", err)
 	}
+	fmt.Print("Listening on port 8080\n")
+	gs := NewGameServer()
 	s := &http.Server{
-		Handler:      NewGameServer(),
+		Handler:      gs,
 		ReadTimeout:  time.Second * 10,
 		WriteTimeout: time.Second * 10,
 	}
@@ -48,38 +55,48 @@ func run() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	return s.Shutdown(ctx)
+	return gs.gameState, s.Shutdown(ctx)
 }
 
 type subscriber struct {
-	msgs      chan []byte
-	closeSlow func()
+	msgs       chan []byte
+	closeSlow  func()
+	connection *websocket.Conn
 }
-
 type GameServer struct {
 	subscribeMessageBuffer int
-	publishLimiter         *rate.Limiter
 	serveMux               http.ServeMux
 	subscribersMu          sync.Mutex
-	subscribers            map[*subscriber]struct{}
+	subscribers            map[string]*subscriber
+	gameState              *game.Game
+	count                  int
 }
 
 func NewGameServer() *GameServer {
+	gameState := game.Game{}
+	file, err := os.Open("game.json")
+	if err != nil {
+		log.Printf("Failed to open a game....Creating new one\n")
+	}
+	err = json.NewDecoder(file).Decode(&gameState)
+	if err != nil {
+		log.Printf("Failed to open a game....Creating new one\n")
+		gameState = game.Game{}
+	}
 	gs := &GameServer{
-		subscribeMessageBuffer: 16,
-		subscribers:            make(map[*subscriber]struct{}),
-		publishLimiter:         rate.NewLimiter(rate.Every(time.Millisecond*100), 8),
+		subscribeMessageBuffer: 1020,
+		subscribers:            make(map[string]*subscriber),
+		gameState:              &gameState,
 	}
 	gs.serveMux.HandleFunc("/subscribe", gs.subscribeHandler)
 	gs.serveMux.HandleFunc("/publish", gs.publishHandler)
 	return gs
 }
-
 func (gs *GameServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gs.serveMux.ServeHTTP(w, r)
 }
-
 func (gs *GameServer) subscribeHandler(w http.ResponseWriter, r *http.Request) {
+	user := r.URL.Query().Get("name")
 	c, err := websocket.Accept(w, r, nil)
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -87,7 +104,7 @@ func (gs *GameServer) subscribeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close(websocket.StatusInternalError, "")
 
-	err = gs.subscribe(r.Context(), c)
+	err = gs.subscribe(r.Context(), c, user)
 	if errors.Is(err, context.Canceled) {
 		return
 	}
@@ -104,29 +121,54 @@ func (gs *GameServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
-	body := http.MaxBytesReader(w, r.Body, 8192)
-	msg, err := ioutil.ReadAll(body)
+	name := r.URL.Query().Get("name")
+	err := json.NewDecoder(r.Body).Decode(gs.gameState.Characters[name])
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+		fmt.Printf("%v\n", err)
 	}
-	gs.publish(msg)
+	msg, _ := json.Marshal(gs.gameState)
+	gs.publish(r.Context(), msg)
 	w.WriteHeader(http.StatusAccepted)
 }
-
-func (gs *GameServer) subscribe(ctx context.Context, c *websocket.Conn) error {
+func (gs *GameServer) subscribe(ctx context.Context, c *websocket.Conn, user string) error {
+	fmt.Printf("%v has joined....\n", user)
 	ctx = c.CloseRead(ctx)
 	s := &subscriber{
-		msgs: make(chan []byte, gs.subscribeMessageBuffer),
+		connection: c,
+		msgs:       make(chan []byte, gs.subscribeMessageBuffer),
 		closeSlow: func() {
-			c.Close(websocket.StatusPolicyViolation, "connection too slow to keep up with messages")
+			c.Close(
+				websocket.StatusPolicyViolation,
+				"connection too slow to keep up with messages",
+			)
 		},
 	}
-	gs.addSubscriber(s)
-	defer gs.deleteSubscriber(s)
+	gs.addSubscriber(ctx, s, user)
+	if userChar, ok := gs.gameState.Characters[user]; ok {
+		jsonChar, err := json.Marshal(userChar)
+		if err != nil {
+			fmt.Println(err)
+		}
+		s.msgs <- []byte(jsonChar)
+	} else {
+		gs.gameState.Characters[user] = &game.Character{
+			PosX:  100,
+			PosY:  100,
+			Speed: 1,
+		}
+		jsonChar, err := json.Marshal(gs.gameState.Characters[user])
+		if err != nil {
+			fmt.Println(err)
+		}
+		s.msgs <- []byte(jsonChar)
+	}
+	defer gs.deleteSubscriber(user)
 	for {
 		select {
 		case msg := <-s.msgs:
-			err := writeTimeout(ctx, time.Second*5, c, msg)
+			fmt.Printf("Processing.......%v\n", gs.count)
+			gs.count++
+			err := writeTimeout(ctx, time.Millisecond*500, c, msg)
 			if err != nil {
 				return err
 			}
@@ -135,12 +177,10 @@ func (gs *GameServer) subscribe(ctx context.Context, c *websocket.Conn) error {
 		}
 	}
 }
-func (gs *GameServer) publish(msg []byte) {
+func (gs *GameServer) publish(ctx context.Context, msg []byte) {
 	gs.subscribersMu.Lock()
 	defer gs.subscribersMu.Unlock()
-
-	gs.publishLimiter.Wait(context.Background())
-	for s := range gs.subscribers {
+	for _, s := range gs.subscribers {
 		select {
 		case s.msgs <- msg:
 		default:
@@ -148,15 +188,15 @@ func (gs *GameServer) publish(msg []byte) {
 		}
 	}
 }
-
-func (gs *GameServer) addSubscriber(s *subscriber) {
+func (gs *GameServer) addSubscriber(ctx context.Context, s *subscriber, user string) {
 	gs.subscribersMu.Lock()
-	gs.subscribers[s] = struct{}{}
+	gs.subscribers[user] = s
 	gs.subscribersMu.Unlock()
 }
-func (gs *GameServer) deleteSubscriber(s *subscriber) {
+func (gs *GameServer) deleteSubscriber(user string) {
+	fmt.Printf("%v has left....\n", user)
 	gs.subscribersMu.Lock()
-	delete(gs.subscribers, s)
+	delete(gs.subscribers, user)
 	gs.subscribersMu.Unlock()
 }
 func writeTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {
