@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jodios/samplemovement/game/characters"
+	"nhooyr.io/websocket"
 )
 
 type Game struct {
@@ -15,6 +16,7 @@ type Game struct {
 	MoveDown    bool
 	MoveLeft    bool
 	MoveRight   bool
+	Connection  *websocket.Conn
 }
 
 // Called every tick
