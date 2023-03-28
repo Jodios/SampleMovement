@@ -1,13 +1,18 @@
 {
 	"characters": {
+		"Joel": {
+			"posx": 362,
+			"posy": 16,
+			"speed": 1
+		},
 		"JohnA": {
-			"posx": 187,
-			"posy": 167,
+			"posx": 326,
+			"posy": 318,
 			"speed": 1
 		},
 		"JohnB": {
-			"posx": 6,
-			"posy": 362,
+			"posx": 209,
+			"posy": 157,
 			"speed": 1
 		},
 		"JohnC": {
@@ -28,6 +33,16 @@
 		"JohnE": {
 			"posx": 100,
 			"posy": 100,
+			"speed": 1
+		},
+		"a": {
+			"posx": 106,
+			"posy": 104,
+			"speed": 1
+		},
+		"b": {
+			"posx": 107,
+			"posy": 58,
 			"speed": 1
 		}
 	}

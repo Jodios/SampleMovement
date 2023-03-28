@@ -1,10 +1,6 @@
 package characters
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/jodios/samplemovement/constants"
@@ -15,10 +11,10 @@ type Orange struct {
 	PosY     float64 `json:"posy,omitempty"`
 	Speed    float64 `json:"speed,omitempty"`
 	CharName string
+	Keys     []ebiten.Key
 
 	counter   int
 	move      bool
-	keys      []ebiten.Key
 	direction [2]int
 	movements [3][3][3]*ebiten.Image
 }
@@ -26,7 +22,7 @@ type Orange struct {
 func (o *Orange) Move(screen *ebiten.Image) {
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(o.PosX, o.PosY)
-	if len(o.keys) == 0 {
+	if len(o.Keys) == 0 {
 		screen.DrawImage(o.movements[o.direction[1]][o.direction[0]][0], opts)
 	} else {
 		if o.move {
@@ -42,10 +38,10 @@ func (o *Orange) Update() {
 		o.move = !o.move
 	}
 	o.counter++
-	o.keys = inpututil.AppendPressedKeys(o.keys[:0])
+	o.Keys = inpututil.AppendPressedKeys(o.Keys[:0])
 	x, y := 0, 0
-	if len(o.keys) > 0 {
-		for _, v := range o.keys {
+	if len(o.Keys) > 0 {
+		for _, v := range o.Keys {
 			if mv, ok := MoveVectorMapping[v]; ok {
 				nPosX := o.PosX + (float64(mv.Xs) * o.Speed)
 				nPosY := o.PosY + (float64(mv.Ys) * o.Speed)
@@ -61,14 +57,6 @@ func (o *Orange) Update() {
 		}
 		o.direction[0] = x + 1
 		o.direction[1] = y + 1
-		go func() {
-			body, _ := json.Marshal(o)
-			http.Post(
-				"http://localhost:8080/publish?name="+o.CharName,
-				"application/text",
-				bytes.NewBuffer([]byte(body)),
-			)
-		}()
 	}
 }
 

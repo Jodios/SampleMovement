@@ -69,6 +69,7 @@ type GameServer struct {
 	subscribersMu          sync.Mutex
 	subscribers            map[string]*subscriber
 	gameState              *game.Game
+	activeGameState        *game.Game
 	count                  int
 }
 
@@ -81,13 +82,25 @@ func NewGameServer() *GameServer {
 	err = json.NewDecoder(file).Decode(&gameState)
 	if err != nil {
 		log.Printf("Failed to open a game....Creating new one\n")
-		gameState = game.Game{}
+		gameState = game.Game{
+			Characters: make(map[string]*game.Character),
+		}
 	}
 	gs := &GameServer{
 		subscribeMessageBuffer: 1020,
 		subscribers:            make(map[string]*subscriber),
 		gameState:              &gameState,
+		activeGameState: &game.Game{
+			Characters: make(map[string]*game.Character),
+		},
 	}
+	// go func() {
+	// 	for {
+	// 		msg, _ := json.Marshal(gs.activeGameState)
+	// 		fmt.Println(string(msg))
+	// 		time.Sleep(time.Second * 2)
+	// 	}
+	// }()
 	gs.serveMux.HandleFunc("/subscribe", gs.subscribeHandler)
 	gs.serveMux.HandleFunc("/publish", gs.publishHandler)
 	return gs
@@ -122,11 +135,11 @@ func (gs *GameServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 	}
 	name := r.URL.Query().Get("name")
-	err := json.NewDecoder(r.Body).Decode(gs.gameState.Characters[name])
+	err := json.NewDecoder(r.Body).Decode(gs.activeGameState.Characters[name])
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	}
-	msg, _ := json.Marshal(gs.gameState)
+	msg, _ := json.Marshal(gs.activeGameState)
 	gs.publish(r.Context(), msg)
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -143,32 +156,34 @@ func (gs *GameServer) subscribe(ctx context.Context, c *websocket.Conn, user str
 			)
 		},
 	}
-	gs.addSubscriber(ctx, s, user)
 	if userChar, ok := gs.gameState.Characters[user]; ok {
+		gs.activeGameState.Characters[user] = userChar
 		jsonChar, err := json.Marshal(userChar)
 		if err != nil {
 			fmt.Println(err)
 		}
 		s.msgs <- []byte(jsonChar)
 	} else {
-		gs.gameState.Characters[user] = &game.Character{
+		newChar := &game.Character{
 			PosX:  100,
 			PosY:  100,
 			Speed: 1,
 		}
+		gs.gameState.Characters[user] = newChar
+		gs.activeGameState.Characters[user] = newChar
 		jsonChar, err := json.Marshal(gs.gameState.Characters[user])
 		if err != nil {
 			fmt.Println(err)
 		}
 		s.msgs <- []byte(jsonChar)
 	}
+	gs.addSubscriber(ctx, s, user)
 	defer gs.deleteSubscriber(user)
 	for {
 		select {
 		case msg := <-s.msgs:
-			fmt.Printf("Processing.......%v\n", gs.count)
 			gs.count++
-			err := writeTimeout(ctx, time.Millisecond*500, c, msg)
+			err := writeTimeout(ctx, time.Millisecond*1000, c, msg)
 			if err != nil {
 				return err
 			}
@@ -191,12 +206,25 @@ func (gs *GameServer) publish(ctx context.Context, msg []byte) {
 func (gs *GameServer) addSubscriber(ctx context.Context, s *subscriber, user string) {
 	gs.subscribersMu.Lock()
 	gs.subscribers[user] = s
+	gs.activeGameState.Added = &user
+	msg, _ := json.Marshal(gs.activeGameState)
+	for _, subs := range gs.subscribers {
+		subs.msgs <- msg
+	}
+	gs.activeGameState.Added = nil
 	gs.subscribersMu.Unlock()
 }
 func (gs *GameServer) deleteSubscriber(user string) {
 	fmt.Printf("%v has left....\n", user)
 	gs.subscribersMu.Lock()
 	delete(gs.subscribers, user)
+	delete(gs.activeGameState.Characters, user)
+	gs.activeGameState.Added = &user
+	msg, _ := json.Marshal(gs.activeGameState)
+	for _, s := range gs.subscribers {
+		s.msgs <- msg
+	}
+	gs.activeGameState.Added = nil
 	gs.subscribersMu.Unlock()
 }
 func writeTimeout(ctx context.Context, timeout time.Duration, c *websocket.Conn, msg []byte) error {

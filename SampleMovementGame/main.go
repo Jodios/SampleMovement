@@ -1,30 +1,29 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/png"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 
+	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jodios/samplemovement/constants"
 	"github.com/jodios/samplemovement/game"
 	"github.com/jodios/samplemovement/game/characters"
-	"nhooyr.io/websocket"
+	"github.com/jodios/samplemovement/networking"
 )
 
 var (
 	assets map[string]*ebiten.Image = make(map[string]*ebiten.Image)
+	ctx                             = context.Background()
 )
 
 const (
-	charName string = "JohnA"
+	charName string = "a"
 	subUrl   string = "ws://localhost:8080/subscribe"
 	pubUrl   string = "http://localhost:8080/publish"
 )
@@ -49,36 +48,43 @@ func init() {
 	}
 }
 
-func establishConnection() (*websocket.Conn, *http.Response) {
+func establishConnection() *networking.Networking {
 	url := subUrl + "?name=" + charName
-	conn, r, err := websocket.Dial(context.Background(), url, &websocket.DialOptions{})
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		log.Fatalf("Error whilst connecting to server %v\n", err)
 	}
-	return conn, r
+	return networking.NewNetworking(ctx, conn)
 }
 
 //go:generate go run github.com/unitoftime/packer/cmd/packer@latest --input images --stats
 func main() {
-	conn, _ := establishConnection()
-	g := game.Game{
-		InnerWidth:  constants.InsideWidth,
-		InnerHeight: constants.InsideHeight,
-		Character:   characters.NewOrange(assets),
-		Connection:  conn,
+	networking := establishConnection()
+	gs := &game.GameState{
+		Characters: make(map[string]*characters.Orange),
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "Closing")
+	g := game.Game{
+		InnerWidth:       constants.InsideWidth,
+		InnerHeight:      constants.InsideHeight,
+		Character:        characters.NewOrange(assets),
+		CharacterChannel: networking.CharacterChannel,
+		GameState:        gs,
+	}
+	networking.CurrentGameState = gs
+	defer networking.Connection.Close()
+	defer close(networking.CharacterChannel)
 
-	_, msg, err := conn.Read(context.Background())
+	state := &characters.Orange{}
+	err := networking.Connection.ReadJSON(state)
 	if err != nil {
 		fmt.Printf("Error reading user data %v\n", err)
 	}
-	state := &characters.Orange{}
-	json.NewDecoder(bytes.NewBuffer(msg)).Decode(state)
 	g.Character.PosX = state.PosX
 	g.Character.PosY = state.PosY
 	g.Character.CharName = charName
 	g.Character.Speed = state.Speed
+	g.GameState.Characters[charName] = g.Character
+	networking.Start(charName, assets)
 
 	ebiten.SetWindowTitle("Sample Multiplayer Game")
 	ebiten.SetWindowSize(constants.ScreenWidth, constants.ScreenHeight)
